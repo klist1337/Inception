@@ -1,0 +1,142 @@
+---
+version: "3.8"
+volumes:
+  wordpress:
+    name: wordpress
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/eassofi/data/wordpress
+  
+  mariadb:
+    name: mariadb
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/eassofi/data/mariadb
+  
+  redis_data:
+    name: redis_data
+    
+networks:
+  Tenet:
+    name: Tenet
+services:
+  nginx:
+    container_name: nginx
+    build:
+      context: ./requirements/nginx/.
+    image: nginx:1.16
+    ports:
+      - 443:443
+    depends_on:
+      - wordpress
+    volumes: 
+    - wordpress:/var/www/html
+    networks:
+      - Tenet
+    restart: always
+
+  wordpress:
+    container_name: wordpress
+    build:
+      context: ./requirements/wordpress/.
+    image: wordpress:1.0
+    depends_on:
+      - mariadb
+    volumes:
+      - wordpress:/var/www/html
+    env_file:
+      - .env
+    networks:
+      - Tenet
+    restart: always
+  
+  mariadb:
+    container_name: mariadb
+    build:
+      context: ./requirements/mariadb/.
+    image: mariadb:10.4
+    volumes:
+      - mariadb:/var/lib/mysql
+    env_file:
+      - .env
+    networks:
+      - Tenet
+    restart: always
+  
+  redis :
+    container_name: redis
+    build:
+      context: ./requirements/bonus/redis/.
+    image: redis:1.0
+    volumes:
+      - wordpress:/var/www/html
+    depends_on:
+      - wordpress
+    networks:
+      - Tenet
+    restart: always
+
+  ftp:
+    container_name: ftp-server
+    build:
+      context: ./requirements/bonus/ftp/.
+    image: ftp-server:1.0
+    volumes:
+      - wordpress:/var/www/html
+    depends_on:
+      - wordpress
+    env_file: 
+      - .env
+    ports:
+      - "20:20"
+      - "21:21"
+      - "30000:30009"
+    networks:
+      - Tenet
+    restart: always
+
+  adminer:
+    container_name: adminer
+    build:
+      context: ./requirements/bonus/adminer/.
+    image: adminer:4.8
+    volumes:
+      - wordpress:/var/www/html
+    depends_on:
+      - mariadb
+    ports:
+      - 600:80
+    networks:
+      - Tenet
+    restart: always
+
+  website:
+    container_name: productly
+    build:
+      context: ./requirements/bonus/website/.
+    image: productly:1.7
+    ports:
+      - 3000:3000
+    networks:
+      - Tenet
+    restart: always
+
+  cadvisor:
+    container_name: cadvisor
+    build:
+      context: ./requirements/bonus/cadvisor/.
+    image: cadvisor:1.8
+    networks:
+      - Tenet
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    restart: always
